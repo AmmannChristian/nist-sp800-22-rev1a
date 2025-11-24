@@ -1,8 +1,6 @@
 services:
   nist-sp800-22:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image:  ghcr.io/ammannchristian/nist-sp800-22-rev1a:latest
     container_name: nist-sp800-22
     ports:
       - "$GRPC_PORT:$GRPC_PORT"
