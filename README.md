@@ -2,10 +2,9 @@
 
 ![CI](https://github.com/AmmannChristian/nist-sp800-22-rev1a/actions/workflows/ci.yml/badge.svg)
 ![NIST Validation](https://github.com/AmmannChristian/nist-sp800-22-rev1a/actions/workflows/nist-validation.yml/badge.svg)
-[![GoDoc](https://pkg.go.dev/badge/github.com/AmmannChristian/NIST-SP-800-22-Rev.1A-Go))](https://pkg.go.dev/github.com/AmmannChristian/NIST-SP-800-22-Rev.1A-Go))
-[![License](https://img.shields.io/github/license/AmmannChristian/NIST-SP-800-22-Rev.1A-Go)](LICENSE)
-[![codecov](https://app.codecov.io/gh/AmmannChristian/NIST-SP-800-22-Rev.1A-Go/branch/main/graph/badge.svg)](https://app.codecov.io/gh/AmmannChristian/NIST-SP-800-22-Rev.1A-Go)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/AmmannChristian/NIST-SP-800-22-Rev.1A-Go))](go.mod)
+[![License](https://img.shields.io/github/license/AmmannChristian/nist-sp800-22-rev1a)](LICENSE)
+[![codecov](https://codecov.io/gh/AmmannChristian/NIST-SP-800-22-Rev.1A-Go/branch/main/graph/badge.svg)](https://app.codecov.io/gh/AmmannChristian/NIST-SP-800-22-Rev.1A-Go)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/AmmannChristian/NIST-SP-800-22-Rev.1A-Go)](go.mod))
 
 A high-performance gRPC service implementing the NIST SP 800-22 statistical test suite for random number generator validation. This service provides a modern API for executing all 15 NIST tests specified in the Special Publication 800-22 revision 1a.
 
