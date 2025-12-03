@@ -116,6 +116,10 @@ Environment-based configuration:
 - `GRPC_PORT` - gRPC service port (default: 9090)
 - `METRICS_PORT` - Prometheus metrics and pprof profiling port (default: 9091)
 - `LOG_LEVEL` - Logging verbosity (debug, info, warn, error)
+- `AUTH_ENABLED` - Enable JWT validation for gRPC calls (default: false)
+- `AUTH_ISSUER` - Expected token issuer (required when auth is enabled)
+- `AUTH_AUDIENCE` - Expected token audience (required when auth is enabled)
+- `AUTH_JWKS_URL` - Optional custom JWKS endpoint (defaults to issuer well-known URL)
 
 ### Extending the Service
 

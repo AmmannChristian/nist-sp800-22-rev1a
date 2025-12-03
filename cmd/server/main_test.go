@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AmmannChristian/nist-sp800-22-rev1a/internal/config"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 )
@@ -96,7 +97,12 @@ func TestRunGRPCServer(t *testing.T) {
 	ln := mustListen(t)
 	defer ln.Close()
 
-	srv := runGRPCServer(ln)
+	interceptors, err := buildUnaryInterceptors(&config.Config{})
+	if err != nil {
+		t.Fatalf("failed to build interceptors: %v", err)
+	}
+
+	srv := runGRPCServer(ln, interceptors)
 	defer srv.Stop()
 
 	go func() {

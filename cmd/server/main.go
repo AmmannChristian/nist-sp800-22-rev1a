@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/AmmannChristian/go-authx/grpcserver"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -47,6 +48,7 @@ func run(ctx context.Context) error {
 		Int("grpc_port", cfg.GRPCPort).
 		Int("metrics_port", cfg.MetricsPort).
 		Str("log_level", cfg.LogLevel).
+		Bool("auth_enabled", cfg.AuthEnabled).
 		Msg("Starting NIST Statistical Test Service")
 
 	// Start Prometheus metrics server
@@ -63,8 +65,13 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to create gRPC listener: %w", err)
 	}
 
+	unaryInterceptors, err := buildUnaryInterceptors(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to configure gRPC server: %w", err)
+	}
+
 	// Create and run gRPC server
-	grpcServer := runGRPCServer(grpcLn)
+	grpcServer := runGRPCServer(grpcLn, unaryInterceptors)
 
 	// Handle graceful shutdown
 	// We merge the provided context with signal handling
@@ -155,13 +162,9 @@ func startMetricsServer(ln net.Listener) *http.Server {
 }
 
 // runGRPCServer creates and configures the gRPC server
-func runGRPCServer(ln net.Listener) *grpc.Server {
-	// Create gRPC server with chained interceptors
+func runGRPCServer(ln net.Listener, unaryInterceptors []grpc.UnaryServerInterceptor) *grpc.Server {
 	grpcServer := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			middleware.UnaryRequestIDInterceptor(),
-			loggingInterceptor,
-		),
+		grpc.ChainUnaryInterceptor(unaryInterceptors...),
 	)
 
 	// Register NIST service
@@ -177,6 +180,44 @@ func runGRPCServer(ln net.Listener) *grpc.Server {
 	reflection.Register(grpcServer)
 
 	return grpcServer
+}
+
+func buildUnaryInterceptors(cfg *config.Config) ([]grpc.UnaryServerInterceptor, error) {
+	interceptors := []grpc.UnaryServerInterceptor{
+		middleware.UnaryRequestIDInterceptor(),
+		loggingInterceptor,
+	}
+
+	if !cfg.AuthEnabled {
+		return interceptors, nil
+	}
+
+	validatorBuilder := grpcserver.NewValidatorBuilder(cfg.AuthIssuer, cfg.AuthAudience)
+	if cfg.AuthJWKSURL != "" {
+		validatorBuilder = validatorBuilder.WithJWKSURL(cfg.AuthJWKSURL)
+	}
+
+	validator, err := validatorBuilder.Build()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build auth validator: %w", err)
+	}
+
+	log.Info().
+		Str("issuer", cfg.AuthIssuer).
+		Str("audience", cfg.AuthAudience).
+		Str("jwks_url", cfg.AuthJWKSURL).
+		Msg("gRPC authentication enabled")
+
+	authInterceptor := grpcserver.UnaryServerInterceptor(
+		validator,
+		grpcserver.WithExemptMethods(
+			"/grpc.health.v1.Health/Check",
+			"/grpc.health.v1.Health/Watch",
+			pb.NISTTestService_HealthCheck_FullMethodName,
+		),
+	)
+
+	return append(interceptors, authInterceptor), nil
 }
 
 // loggingInterceptor logs all gRPC requests with request ID
