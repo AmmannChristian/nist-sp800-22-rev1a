@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package nist.sp800_22.v1;
+
+option go_package = "github.com/AmmannChristian/nist-sp800-22-rev1a/pkg/pb;nistsp80022v1";
+
+// Service for NIST SP 800-22 Rev 1a Statistical Test Suite
+service Sp80022TestService {
+  // RunTestSuite executes all 15 NIST SP 800-22 statistical tests on the provided bitstream
+  rpc RunTestSuite(Sp80022TestRequest) returns (Sp80022TestResponse);
+}
+
+// Sp80022TestRequest contains the bitstream and optional configuration
+message Sp80022TestRequest {
+  // Raw bitstream as bytes (minimum 387,840 bits)
+  bytes bitstream = 1;
+
+  // Optional test configuration parameters
+  optional Sp80022TestConfig config = 2;
+}
+
+// Sp80022TestConfig allows customization of test parameters
+message Sp80022TestConfig {
+  // Block Frequency Test - block length M (default: 128)
+  int32 block_frequency_block_length = 1;
+
+  // Non-Overlapping Template Test - block length m (default: 9)
+  int32 non_overlapping_template_block_length = 2;
+
+  // Overlapping Template Test - block length m (default: 9)
+  int32 overlapping_template_block_length = 3;
+
+  // Approximate Entropy Test - block length m (default: 10)
+  int32 approximate_entropy_block_length = 4;
+
+  // Serial Test - block length m (default: 16)
+  int32 serial_block_length = 5;
+
+  // Linear Complexity Test - sequence length M (default: 500)
+  int32 linear_complexity_sequence_length = 6;
+}
+
+// Sp80022TestResponse contains results from all 15 NIST SP 800-22 tests
+message Sp80022TestResponse {
+  // ISO 8601 timestamp when tests were executed
+  string timestamp = 1;
+
+  // Number of bits in the input sample
+  int32 sample_size_bits = 2;
+
+  // Overall pass rate (0.0 - 1.0) - ONLY for implemented tests
+  double overall_pass_rate = 3;
+
+  // P-value uniformity chi-squared test result
+  double p_value_uniformity_chi2 = 4;
+
+  // Individual test results (15 tests)
+  repeated Sp80022TestResult results = 5;
+
+  // Total execution time in milliseconds
+  int64 execution_time_ms = 6;
+
+  // Number of tests actually executed (not skipped)
+  int32 tests_run = 7;
+
+  // Number of tests not yet implemented
+  int32 tests_skipped = 8;
+
+  // Always 15 for NIST SP 800-22
+  int32 tests_total = 9;
+
+  // true only if tests_run == tests_total (full NIST SP 800-22 compliance)
+  bool nist_compliant = 10;
+}
+
+// Sp80022TestResult represents the outcome of a single NIST SP 800-22 statistical test
+message Sp80022TestResult {
+  // Test name (e.g., "frequency_monobit")
+  string name = 1;
+
+  // P-value from the test (0.0 - 1.0)
+  double p_value = 2;
+
+  // Whether the test passed (p_value > 0.01)
+  bool passed = 3;
+
+  // Proportion metric (for multi-run tests, optional)
+  optional double proportion = 4;
+
+  // Warning message if test couldn't complete normally
+  optional string warning = 5;
+}

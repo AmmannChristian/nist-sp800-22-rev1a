@@ -180,9 +180,9 @@ func runGRPCServer(cfg *config.Config, unaryInterceptors []grpc.UnaryServerInter
 
 	grpcServer := grpc.NewServer(serverOpts...)
 
-	// Register NIST service
+	// Register NIST SP 800-22 service
 	nistServer := service.NewServer()
-	pb.RegisterNISTTestServiceServer(grpcServer, nistServer)
+	pb.RegisterSp80022TestServiceServer(grpcServer, nistServer)
 
 	// Register health check service
 	healthServer := health.NewServer()
@@ -226,7 +226,6 @@ func buildUnaryInterceptors(cfg *config.Config) ([]grpc.UnaryServerInterceptor, 
 		grpcserver.WithExemptMethods(
 			"/grpc.health.v1.Health/Check",
 			"/grpc.health.v1.Health/Watch",
-			pb.NISTTestService_HealthCheck_FullMethodName,
 		),
 	)
 

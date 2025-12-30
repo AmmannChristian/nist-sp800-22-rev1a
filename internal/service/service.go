@@ -1,4 +1,4 @@
-// Package service implements the gRPC NISTTestService
+// Package service implements the gRPC Sp80022TestService (NIST SP 800-22 Rev 1a)
 package service
 
 import (
@@ -21,25 +21,25 @@ import (
 var runAllTests = nist.RunAllTests
 
 const (
-	// Version of the service
-	Version = "1.0.0"
+	// Version of the service (2.0.0 for breaking API change)
+	Version = "2.0.0"
 
 	// Alpha significance level from NIST (p-value threshold)
 	Alpha = 0.01
 )
 
-// Server implements the NIST Test Service
+// Server implements the Sp80022TestService
 type Server struct {
-	pb.UnimplementedNISTTestServiceServer
+	pb.UnimplementedSp80022TestServiceServer
 }
 
-// NewServer creates a new NIST test service server
+// NewServer creates a new Sp80022TestService server
 func NewServer() *Server {
 	return &Server{}
 }
 
-// RunTests implements the RunTests RPC
-func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestResponse, error) {
+// RunTestSuite implements the RunTestSuite RPC
+func (s *Server) RunTestSuite(ctx context.Context, req *pb.Sp80022TestRequest) (*pb.Sp80022TestResponse, error) {
 	startTime := time.Now()
 
 	// Generate unique request ID for log correlation
@@ -48,7 +48,7 @@ func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestRes
 	log.Info().
 		Str("request_id", requestID).
 		Int("bitstream_bytes", len(req.Bitstream)).
-		Msg("RunTests request received")
+		Msg("RunTestSuite request received")
 
 	// Validate request
 	if err := s.validateRequest(req); err != nil {
@@ -56,11 +56,11 @@ func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestRes
 			Str("request_id", requestID).
 			Err(err).
 			Msg("Request validation failed")
-		metrics.RequestsTotal.WithLabelValues("RunTests", "error").Inc()
+		metrics.RequestsTotal.WithLabelValues("RunTestSuite", "error").Inc()
 		return nil, err
 	}
 
-	metrics.RequestsTotal.WithLabelValues("RunTests", "success").Inc()
+	metrics.RequestsTotal.WithLabelValues("RunTestSuite", "success").Inc()
 
 	// Run NIST tests in pure Go
 	testStart := time.Now()
@@ -80,10 +80,10 @@ func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestRes
 	sampleBits := int32(len(req.Bitstream) * 8) //nolint:gosec // safe: MaxBits < 2^31
 
 	// Build response
-	response := &pb.TestResponse{
+	response := &pb.Sp80022TestResponse{
 		Timestamp:       time.Now().Format(time.RFC3339),
 		SampleSizeBits:  sampleBits,
-		Tests:           make([]*pb.TestResult, len(results)),
+		Results:         make([]*pb.Sp80022TestResult, len(results)),
 		ExecutionTimeMs: time.Since(startTime).Milliseconds(),
 	}
 
@@ -96,7 +96,7 @@ func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestRes
 		// Skip tests that weren't implemented (p_value < 0)
 		if result.PValue < 0.0 {
 			// Mark as skipped
-			pbResult := &pb.TestResult{
+			pbResult := &pb.Sp80022TestResult{
 				Name:   result.Name,
 				PValue: result.PValue,
 				Passed: false,
@@ -106,7 +106,7 @@ func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestRes
 				pbResult.Warning = &result.Warning
 			}
 
-			response.Tests[i] = pbResult
+			response.Results[i] = pbResult
 			continue
 		}
 
@@ -123,7 +123,7 @@ func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestRes
 		metrics.PValue.WithLabelValues(result.Name).Set(result.PValue)
 
 		// Convert to protobuf message
-		pbResult := &pb.TestResult{
+		pbResult := &pb.Sp80022TestResult{
 			Name:   result.Name,
 			PValue: result.PValue,
 			Passed: result.Passed,
@@ -137,7 +137,7 @@ func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestRes
 			pbResult.Warning = &result.Warning
 		}
 
-		response.Tests[i] = pbResult
+		response.Results[i] = pbResult
 
 		// Only add real p-values to uniformity check
 		pValues = append(pValues, result.PValue)
@@ -174,18 +174,8 @@ func (s *Server) RunTests(ctx context.Context, req *pb.TestRequest) (*pb.TestRes
 	return response, nil
 }
 
-// HealthCheck implements the HealthCheck RPC
-func (s *Server) HealthCheck(ctx context.Context, req *pb.HealthRequest) (*pb.HealthResponse, error) {
-	msg := "service is healthy"
-	return &pb.HealthResponse{
-		Healthy: true,
-		Version: Version,
-		Message: &msg,
-	}, nil
-}
-
 // validateRequest validates the test request
-func (s *Server) validateRequest(req *pb.TestRequest) error {
+func (s *Server) validateRequest(req *pb.Sp80022TestRequest) error {
 	if len(req.Bitstream) == 0 {
 		return fmt.Errorf("bitstream cannot be empty")
 	}

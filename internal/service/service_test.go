@@ -13,12 +13,12 @@ import (
 func TestValidateRequest(t *testing.T) {
 	s := NewServer()
 
-	tooSmall := &pb.TestRequest{Bitstream: make([]byte, 10)}
+	tooSmall := &pb.Sp80022TestRequest{Bitstream: make([]byte, 10)}
 	if err := s.validateRequest(tooSmall); err == nil {
 		t.Fatalf("expected error for insufficient bits")
 	}
 
-	justRight := &pb.TestRequest{Bitstream: make([]byte, nist.MinBits/8)}
+	justRight := &pb.Sp80022TestRequest{Bitstream: make([]byte, nist.MinBits/8)}
 	if err := s.validateRequest(justRight); err != nil {
 		t.Fatalf("unexpected error for valid size: %v", err)
 	}
@@ -36,23 +36,23 @@ func TestCalculatePValueUniformity(t *testing.T) {
 	}
 }
 
-func TestRunTestsSuccessAndFailure(t *testing.T) {
+func TestRunTestSuiteSuccessAndFailure(t *testing.T) {
 	s := NewServer()
 
 	// Too small should error
-	if _, err := s.RunTests(context.Background(), &pb.TestRequest{Bitstream: make([]byte, 10)}); err == nil {
+	if _, err := s.RunTestSuite(context.Background(), &pb.Sp80022TestRequest{Bitstream: make([]byte, 10)}); err == nil {
 		t.Fatalf("expected error on insufficient bits")
 	}
 
 	// Valid size should succeed
 	bits := make([]byte, nist.MinBits/8)
 	start := time.Now()
-	resp, err := s.RunTests(context.Background(), &pb.TestRequest{Bitstream: bits})
+	resp, err := s.RunTestSuite(context.Background(), &pb.Sp80022TestRequest{Bitstream: bits})
 	if err != nil {
-		t.Fatalf("RunTests failed: %v", err)
+		t.Fatalf("RunTestSuite failed: %v", err)
 	}
-	if len(resp.Tests) != 15 {
-		t.Fatalf("expected 15 test results, got %d", len(resp.Tests))
+	if len(resp.Results) != 15 {
+		t.Fatalf("expected 15 test results, got %d", len(resp.Results))
 	}
 	if resp.SampleSizeBits != int32(nist.MinBits) {
 		t.Fatalf("unexpected sample size bits: %d", resp.SampleSizeBits)
@@ -62,22 +62,11 @@ func TestRunTestsSuccessAndFailure(t *testing.T) {
 	}
 }
 
-func TestHealthCheck(t *testing.T) {
-	s := NewServer()
-	resp, err := s.HealthCheck(context.Background(), &pb.HealthRequest{})
-	if err != nil {
-		t.Fatalf("HealthCheck returned error: %v", err)
-	}
-	if !resp.Healthy || resp.Version == "" {
-		t.Fatalf("unexpected health response: %+v", resp)
-	}
-}
-
 func TestValidateRequestEdgeCases(t *testing.T) {
 	s := NewServer()
 
 	// Empty bitstream
-	empty := &pb.TestRequest{Bitstream: []byte{}}
+	empty := &pb.Sp80022TestRequest{Bitstream: []byte{}}
 	if err := s.validateRequest(empty); err == nil {
 		t.Error("expected error for empty bitstream")
 	}
@@ -86,7 +75,7 @@ func TestValidateRequestEdgeCases(t *testing.T) {
 	// We can't easily allocate 10MB+ in a test without being slow/memory heavy,
 	// but we can mock or just trust the logic.
 	// Actually, nist.MaxBits is 10,000,000 bits = 1.25MB. That's fine to allocate.
-	huge := &pb.TestRequest{Bitstream: make([]byte, nist.MaxBits/8+1)}
+	huge := &pb.Sp80022TestRequest{Bitstream: make([]byte, nist.MaxBits/8+1)}
 	if err := s.validateRequest(huge); err == nil {
 		t.Error("expected error for exceeding max bits")
 	}
@@ -113,7 +102,7 @@ func TestCalculatePValueUniformityEdgeCases(t *testing.T) {
 	}
 }
 
-func TestRunTestsCoverage(t *testing.T) {
+func TestRunTestSuiteCoverage(t *testing.T) {
 	s := NewServer()
 
 	// 1. Random data (should pass most tests) -> Covers Proportion > 0
@@ -127,20 +116,20 @@ func TestRunTestsCoverage(t *testing.T) {
 		randomBits[i] = byte(state >> 56)
 	}
 
-	_, err := s.RunTests(context.Background(), &pb.TestRequest{Bitstream: randomBits})
+	_, err := s.RunTestSuite(context.Background(), &pb.Sp80022TestRequest{Bitstream: randomBits})
 	if err != nil {
-		t.Fatalf("RunTests with random data failed: %v", err)
+		t.Fatalf("RunTestSuite with random data failed: %v", err)
 	}
 
 	// 2. All zeros (should fail and warn) -> Covers Warning != ""
 	zeros := make([]byte, n)
-	_, err = s.RunTests(context.Background(), &pb.TestRequest{Bitstream: zeros})
+	_, err = s.RunTestSuite(context.Background(), &pb.Sp80022TestRequest{Bitstream: zeros})
 	if err != nil {
-		t.Fatalf("RunTests with zeros failed: %v", err)
+		t.Fatalf("RunTestSuite with zeros failed: %v", err)
 	}
 }
 
-func TestRunTestsMocked(t *testing.T) {
+func TestRunTestSuiteMocked(t *testing.T) {
 	orig := runAllTests
 	defer func() { runAllTests = orig }()
 
@@ -150,7 +139,7 @@ func TestRunTestsMocked(t *testing.T) {
 		return nil, fmt.Errorf("mock error")
 	}
 	validBits := make([]byte, nist.MinBits/8)
-	_, err := s.RunTests(context.Background(), &pb.TestRequest{Bitstream: validBits})
+	_, err := s.RunTestSuite(context.Background(), &pb.Sp80022TestRequest{Bitstream: validBits})
 	if err == nil {
 		t.Error("expected error from mocked RunAllTests")
 	}
@@ -161,14 +150,14 @@ func TestRunTestsMocked(t *testing.T) {
 			{Name: "ValidTest", PValue: 0.5, Passed: true, Proportion: 1.0},
 		}, nil
 	}
-	resp, err := s.RunTests(context.Background(), &pb.TestRequest{Bitstream: validBits})
+	resp, err := s.RunTestSuite(context.Background(), &pb.Sp80022TestRequest{Bitstream: validBits})
 	if err != nil {
-		t.Fatalf("RunTests failed: %v", err)
+		t.Fatalf("RunTestSuite failed: %v", err)
 	}
-	if len(resp.Tests) != 2 {
-		t.Fatalf("expected 2 tests, got %d", len(resp.Tests))
+	if len(resp.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(resp.Results))
 	}
-	if resp.Tests[0].PValue >= 0 {
+	if resp.Results[0].PValue >= 0 {
 		t.Error("expected negative p-value for skipped test")
 	}
 
